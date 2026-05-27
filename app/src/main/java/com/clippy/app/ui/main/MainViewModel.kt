@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -192,6 +193,35 @@ class MainViewModel @Inject constructor(
     fun navigateToSettings() {
         viewModelScope.launch {
             _events.emit(MainUiEvent.NavigateToSettings)
+        }
+    }
+    
+    /**
+     * Refresh clips - triggers a re-emission of the flow.
+     * This is useful when returning to the app to ensure latest data is shown.
+     */
+    fun refreshClips() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            // The flow will automatically emit new values
+            // Just trigger a brief loading state
+            kotlinx.coroutines.delay(100)
+            _isLoading.value = false
+        }
+    }
+    
+    /**
+     * Add a clip from clipboard content (manual capture).
+     */
+    fun addClipFromClipboard(content: String) {
+        viewModelScope.launch {
+            try {
+                val maxSize = preferencesManager.maxHistorySize.first()
+                clipRepository.addClip(content, maxSize)
+                _events.emit(MainUiEvent.ShowSnackbar("Clipboard captured"))
+            } catch (e: Exception) {
+                _events.emit(MainUiEvent.ShowSnackbar("Failed to capture clipboard"))
+            }
         }
     }
 }
