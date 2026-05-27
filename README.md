@@ -1,9 +1,5 @@
 # Clippy - Android Clipboard Manager
 
-<p align="center">
-  <img src="app/src/main/res/drawable/ic_launcher_foreground.xml" width="120" alt="Clippy Logo">
-</p>
-
 A modern, privacy-focused clipboard manager for Android inspired by [Maccy](https://maccy.app/) for macOS. Clippy automatically saves your clipboard history and provides quick access via the app and a persistent notification.
 
 ## Features
