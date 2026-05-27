@@ -2,11 +2,13 @@
 planning.md
 planning.txt
 
-# Built application files
-*.apk
+# Built application files (except release folder)
 *.aar
 *.ap_
 *.aab
+
+# Ignore APKs in build directories but allow release folder
+app/build/**/*.apk
 
 # Files for the ART/Dalvik VM
 *.dex
@@ -18,7 +20,7 @@ planning.txt
 bin/
 gen/
 out/
-release/
+# Note: release/ folder is NOT ignored - it contains release APKs for GitHub
 
 # Gradle files
 .gradle/
