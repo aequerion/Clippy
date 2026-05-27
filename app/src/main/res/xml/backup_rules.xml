@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include the clipboard database -->
+    <include domain="database" path="clippy_database" />
+    <!-- Include shared preferences -->
+    <include domain="sharedpref" path="." />
+    <!-- Exclude datastore (will be recreated) -->
+    <exclude domain="file" path="datastore" />
+</full-backup-content>

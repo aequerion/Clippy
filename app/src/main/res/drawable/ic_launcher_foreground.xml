@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Clipboard base -->
+    <path
+        android:fillColor="#238636"
+        android:pathData="M34,28h40c2.2,0 4,1.8 4,4v48c0,2.2 -1.8,4 -4,4H34c-2.2,0 -4,-1.8 -4,-4V32C30,29.8 31.8,28 34,28z" />
+    
+    <!-- Clipboard clip at top -->
+    <path
+        android:fillColor="#2EA043"
+        android:pathData="M44,24h20c1.1,0 2,0.9 2,2v6H42v-6C42,24.9 42.9,24 44,24z" />
+    
+    <!-- Clipboard inner area -->
+    <path
+        android:fillColor="#0D1117"
+        android:pathData="M36,36h36v40H36V36z" />
+    
+    <!-- Text lines on clipboard -->
+    <path
+        android:fillColor="#8B949E"
+        android:pathData="M40,44h24v3H40V44z" />
+    <path
+        android:fillColor="#8B949E"
+        android:pathData="M40,52h20v3H40V52z" />
+    <path
+        android:fillColor="#8B949E"
+        android:pathData="M40,60h16v3H40V60z" />
+    
+    <!-- Checkmark/Copy indicator -->
+    <path
+        android:fillColor="#238636"
+        android:pathData="M62,64l4,4l8,-8"
+        android:strokeWidth="2.5"
+        android:strokeColor="#238636"
+        android:fillType="nonZero" />
+</vector>

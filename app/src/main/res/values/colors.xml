@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- GitGraph Theme Colors -->
+    
+    <!-- Background Colors -->
+    <color name="background_dark">#0D1117</color>
+    <color name="card_background">#161B22</color>
+    <color name="surface_elevated">#21262D</color>
+    
+    <!-- Border Colors -->
+    <color name="border">#30363D</color>
+    <color name="border_light">#484F58</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#8B949E</color>
+    <color name="text_tertiary">#6E7681</color>
+    
+    <!-- Accent Colors -->
+    <color name="accent_green">#238636</color>
+    <color name="accent_green_light">#2EA043</color>
+    <color name="accent_green_dark">#196C2E</color>
+    
+    <!-- Link/Action Colors -->
+    <color name="link_blue">#58A6FF</color>
+    <color name="link_blue_light">#79C0FF</color>
+    
+    <!-- Status Colors -->
+    <color name="error_red">#F85149</color>
+    <color name="error_background">#490202</color>
+    <color name="warning_yellow">#D29922</color>
+    <color name="warning_background">#3D2E00</color>
+    <color name="success_green">#238636</color>
+    
+    <!-- Pin Color -->
+    <color name="pin_gold">#D4A72C</color>
+    
+    <!-- Notification Colors -->
+    <color name="notification_background">#161B22</color>
+    
+    <!-- Ripple -->
+    <color name="ripple_color">#30FFFFFF</color>
+    
+    <!-- Launcher Icon Background -->
+    <color name="ic_launcher_background">#0D1117</color>
+</resources>
