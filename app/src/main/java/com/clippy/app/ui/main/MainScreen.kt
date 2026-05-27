@@ -1,76 +1,39 @@
 package com.clippy.app.ui.main
 
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.clippy.app.R
+import androidx.compose.ui.unit.sp
 import com.clippy.app.data.database.ClipEntity
 import com.clippy.app.ui.theme.ClippyColors
 import kotlinx.coroutines.flow.collectLatest
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
- * Main screen composable showing clipboard history.
+ * Main screen displaying clipboard history.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,10 +41,9 @@ fun MainScreen(
     viewModel: MainViewModel,
     onNavigateToSettings: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showClearDialog by remember { mutableStateOf(false) }
-    var showMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     
     // Handle events
     LaunchedEffect(Unit) {
@@ -103,63 +65,48 @@ fun MainScreen(
         }
     }
     
-    // Start service on launch
-    LaunchedEffect(Unit) {
-        viewModel.startServiceIfEnabled()
-    }
-    
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge
+                        "Clippy",
+                        fontWeight = FontWeight.Bold,
+                        color = ClippyColors.TextPrimary
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = ClippyColors.BackgroundDark,
-                    titleContentColor = ClippyColors.TextPrimary
+                    containerColor = ClippyColors.BackgroundDark
                 ),
                 actions = {
-                    IconButton(onClick = { showMenu = true }) {
+                    // Capture clipboard button
+                    IconButton(onClick = {
+                        captureClipboard(context, viewModel)
+                    }) {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Menu",
+                            Icons.Default.ContentPaste,
+                            contentDescription = "Capture Clipboard",
+                            tint = ClippyColors.AccentGreen
+                        )
+                    }
+                    IconButton(onClick = { viewModel.clearAllUnpinned() }) {
+                        Icon(
+                            Icons.Default.DeleteSweep,
+                            contentDescription = "Clear All",
                             tint = ClippyColors.TextSecondary
                         )
                     }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.settings)) },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToSettings()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Settings, contentDescription = null)
-                            }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = ClippyColors.TextSecondary
                         )
-                        if (uiState.clips.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.clear_all)) },
-                                onClick = {
-                                    showMenu = false
-                                    showClearDialog = true
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.DeleteSweep, contentDescription = null)
-                                }
-                            )
-                        }
                     }
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = ClippyColors.BackgroundDark
     ) { paddingValues ->
         Box(
@@ -169,63 +116,40 @@ fun MainScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    LoadingState()
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = ClippyColors.AccentGreen
+                    )
                 }
                 uiState.clips.isEmpty() -> {
-                    EmptyState()
+                    EmptyState(
+                        onCaptureClipboard = { captureClipboard(context, viewModel) }
+                    )
                 }
                 else -> {
                     ClipList(
                         clips = uiState.clips,
-                        onClipClick = { viewModel.copyToClipboard(it) },
-                        onPinClick = { viewModel.togglePin(it) },
-                        onDeleteClick = { viewModel.deleteClip(it) }
+                        onCopyClip = { viewModel.copyToClipboard(it) },
+                        onTogglePin = { viewModel.togglePin(it) },
+                        onDeleteClip = { viewModel.deleteClip(it) }
                     )
                 }
             }
         }
     }
-    
-    // Clear confirmation dialog
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = { Text(stringResource(R.string.clear_all)) },
-            text = { Text(stringResource(R.string.clear_all_confirm)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showClearDialog = false
-                        viewModel.clearAllUnpinned()
-                    }
-                ) {
-                    Text(stringResource(R.string.confirm), color = ClippyColors.ErrorRed)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-            containerColor = ClippyColors.CardBackground,
-            titleContentColor = ClippyColors.TextPrimary,
-            textContentColor = ClippyColors.TextSecondary
-        )
-    }
 }
 
 /**
- * Loading state indicator.
+ * Capture current clipboard content manually
  */
-@Composable
-private fun LoadingState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(
-            color = ClippyColors.AccentGreen
-        )
+private fun captureClipboard(context: Context, viewModel: MainViewModel) {
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = clipboardManager.primaryClip
+    if (clip != null && clip.itemCount > 0) {
+        val text = clip.getItemAt(0)?.text?.toString()
+        if (!text.isNullOrBlank()) {
+            viewModel.addClipFromClipboard(text)
+        }
     }
 }
 
@@ -233,7 +157,9 @@ private fun LoadingState() {
  * Empty state when no clips are available.
  */
 @Composable
-private fun EmptyState() {
+private fun EmptyState(
+    onCaptureClipboard: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -242,22 +168,47 @@ private fun EmptyState() {
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = Icons.Default.ContentCopy,
+            Icons.Default.ContentPaste,
             contentDescription = null,
             modifier = Modifier.size(80.dp),
-            tint = ClippyColors.TextTertiary
+            tint = ClippyColors.TextSecondary.copy(alpha = 0.5f)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = stringResource(R.string.empty_clipboard),
-            style = MaterialTheme.typography.titleMedium,
+            "No clips yet",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Medium,
             color = ClippyColors.TextPrimary
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringResource(R.string.empty_clipboard_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = ClippyColors.TextSecondary
+            "Copy some text and tap the paste button\nto capture it, or copy while this app is open",
+            fontSize = 14.sp,
+            color = ClippyColors.TextSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp),
+            lineHeight = 20.sp
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onCaptureClipboard,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ClippyColors.AccentGreen
+            )
+        ) {
+            Icon(
+                Icons.Default.ContentPaste,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Capture Clipboard")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "Note: On Android 10+, clipboard can only be\nread when this app is in the foreground",
+            fontSize = 12.sp,
+            color = ClippyColors.TextSecondary.copy(alpha = 0.7f),
+            lineHeight = 16.sp
         )
     }
 }
@@ -268,14 +219,14 @@ private fun EmptyState() {
 @Composable
 private fun ClipList(
     clips: List<ClipEntity>,
-    onClipClick: (ClipEntity) -> Unit,
-    onPinClick: (ClipEntity) -> Unit,
-    onDeleteClick: (ClipEntity) -> Unit
+    onCopyClip: (ClipEntity) -> Unit,
+    onTogglePin: (ClipEntity) -> Unit,
+    onDeleteClip: (ClipEntity) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(
             items = clips,
@@ -283,52 +234,42 @@ private fun ClipList(
         ) { clip ->
             ClipItem(
                 clip = clip,
-                onClick = { onClipClick(clip) },
-                onPinClick = { onPinClick(clip) },
-                onDeleteClick = { onDeleteClick(clip) }
+                onCopy = { onCopyClip(clip) },
+                onTogglePin = { onTogglePin(clip) },
+                onDelete = { onDeleteClip(clip) }
             )
         }
     }
 }
 
 /**
- * Individual clipboard item card.
+ * Individual clip item card.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ClipItem(
     clip: ClipEntity,
-    onClick: () -> Unit,
-    onPinClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onCopy: () -> Unit,
+    onTogglePin: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
-    var showActions by remember { mutableStateOf(false) }
-    
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .combinedClickable(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onClick()
-                },
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    showActions = !showActions
-                }
-            ),
+            .clickable { onCopy() },
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
             containerColor = ClippyColors.CardBackground
         ),
-        border = BorderStroke(1.dp, ClippyColors.Border),
-        shape = RoundedCornerShape(8.dp)
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (clip.isPinned) ClippyColors.AccentGreen.copy(alpha = 0.5f)
+            else ClippyColors.Border
+        )
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
         ) {
-            // Header with pin indicator and time
+            // Header with timestamp and actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -339,96 +280,65 @@ private fun ClipItem(
                 ) {
                     if (clip.isPinned) {
                         Icon(
-                            imageVector = Icons.Filled.PushPin,
-                            contentDescription = stringResource(R.string.pinned),
+                            Icons.Default.PushPin,
+                            contentDescription = "Pinned",
                             modifier = Modifier.size(14.dp),
-                            tint = ClippyColors.PinGold
+                            tint = ClippyColors.AccentGreen
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(R.string.pinned),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = ClippyColors.PinGold
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     Text(
-                        text = formatTimestamp(clip.timestamp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ClippyColors.TextTertiary
+                        formatTimestamp(clip.timestamp),
+                        fontSize = 12.sp,
+                        color = ClippyColors.TextSecondary
                     )
+                }
+                
+                Row {
+                    IconButton(
+                        onClick = onTogglePin,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            if (clip.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = if (clip.isPinned) "Unpin" else "Pin",
+                            modifier = Modifier.size(18.dp),
+                            tint = if (clip.isPinned) ClippyColors.AccentGreen else ClippyColors.TextSecondary
+                        )
+                    }
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            modifier = Modifier.size(18.dp),
+                            tint = ClippyColors.ErrorRed
+                        )
+                    }
                 }
             }
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Content preview
+            // Content
             Text(
-                text = clip.preview,
-                style = MaterialTheme.typography.bodyMedium,
+                clip.content,
+                fontSize = 14.sp,
                 color = ClippyColors.TextPrimary,
                 maxLines = 4,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 20.sp
             )
             
-            // Action buttons (shown on long press)
-            AnimatedVisibility(
-                visible = showActions,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onClick()
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = stringResource(R.string.copy),
-                            tint = ClippyColors.LinkBlue,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onPinClick()
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (clip.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = if (clip.isPinned) stringResource(R.string.unpin) else stringResource(R.string.pin),
-                            tint = if (clip.isPinned) ClippyColors.PinGold else ClippyColors.TextSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onDeleteClick()
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(R.string.delete),
-                            tint = ClippyColors.ErrorRed,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
+            // Character count
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "${clip.content.length} characters",
+                fontSize = 11.sp,
+                color = ClippyColors.TextSecondary.copy(alpha = 0.7f)
+            )
         }
     }
 }
@@ -445,9 +355,6 @@ private fun formatTimestamp(timestamp: Long): String {
         diff < 3600_000 -> "${diff / 60_000}m ago"
         diff < 86400_000 -> "${diff / 3600_000}h ago"
         diff < 604800_000 -> "${diff / 86400_000}d ago"
-        else -> {
-            val sdf = java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault())
-            sdf.format(java.util.Date(timestamp))
-        }
+        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
     }
 }
