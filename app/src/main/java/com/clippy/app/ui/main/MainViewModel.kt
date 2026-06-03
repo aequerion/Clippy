@@ -68,6 +68,10 @@ class MainViewModel @Inject constructor(
     private val _viewMode = MutableStateFlow(ViewMode.CLIPS)
     private val _showClearAllDialog = MutableStateFlow(false)
     
+    // For undo functionality
+    private var lastDeletedClipId: Long? = null
+    private var lastDeletedClipIds: List<Long> = emptyList()
+    
     /**
      * Combined UI state from multiple sources.
      */
@@ -153,13 +157,39 @@ class MainViewModel @Inject constructor(
     }
     
     /**
-     * Delete a clip (move to bin).
+     * Delete a clip (move to bin) with undo support.
      */
     fun deleteClip(clip: ClipEntity) {
         viewModelScope.launch {
+            lastDeletedClipId = clip.id
+            lastDeletedClipIds = emptyList() // Clear bulk delete tracking
             clipRepository.deleteClip(clip)
             _events.emit(MainUiEvent.ClipDeleted(clip))
-            _events.emit(MainUiEvent.ShowSnackbar("Moved to bin"))
+            _events.emit(MainUiEvent.ShowSnackbar("Moved to bin", "Undo"))
+        }
+    }
+    
+    /**
+     * Undo the last delete operation.
+     */
+    fun undoDelete() {
+        viewModelScope.launch {
+            // Handle single item undo
+            lastDeletedClipId?.let { id ->
+                clipRepository.restoreFromBin(id)
+                lastDeletedClipId = null
+                _events.emit(MainUiEvent.ShowSnackbar("Restored"))
+            }
+            
+            // Handle bulk undo (clear all)
+            if (lastDeletedClipIds.isNotEmpty()) {
+                lastDeletedClipIds.forEach { id ->
+                    clipRepository.restoreFromBin(id)
+                }
+                val count = lastDeletedClipIds.size
+                lastDeletedClipIds = emptyList()
+                _events.emit(MainUiEvent.ShowSnackbar("Restored $count items"))
+            }
         }
     }
     
@@ -178,13 +208,18 @@ class MainViewModel @Inject constructor(
     }
     
     /**
-     * Clear all unpinned clips (with confirmation).
+     * Clear all unpinned clips (with confirmation) with undo support.
      */
     fun confirmClearAllUnpinned() {
         viewModelScope.launch {
+            // Get the IDs of unpinned clips before deleting for undo
+            val unpinnedClips = uiState.value.clips.filter { !it.isPinned }
+            lastDeletedClipIds = unpinnedClips.map { it.id }
+            lastDeletedClipId = null // Clear single delete tracking
+            
             clipRepository.clearUnpinned()
             _showClearAllDialog.value = false
-            _events.emit(MainUiEvent.ShowSnackbar("Moved all unpinned items to bin"))
+            _events.emit(MainUiEvent.ShowSnackbar("Moved ${unpinnedClips.size} items to bin", "Undo"))
         }
     }
     
