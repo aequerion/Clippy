@@ -50,11 +50,14 @@ fun MainScreen(
         viewModel.events.collectLatest { event ->
             when (event) {
                 is MainUiEvent.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(
+                    val result = snackbarHostState.showSnackbar(
                         message = event.message,
                         actionLabel = event.actionLabel,
-                        duration = SnackbarDuration.Short
+                        duration = if (event.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short
                     )
+                    if (result == SnackbarResult.ActionPerformed && event.actionLabel == "Undo") {
+                        viewModel.undoDelete()
+                    }
                 }
                 is MainUiEvent.NavigateToSettings -> onNavigateToSettings()
                 else -> {}
