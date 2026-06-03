@@ -36,11 +36,25 @@ data class ClipEntity(
     /**
      * Preview text for display (truncated version of content).
      */
-    val preview: String = content.take(MAX_PREVIEW_LENGTH)
+    val preview: String = content.take(MAX_PREVIEW_LENGTH),
+    
+    /**
+     * Whether this item is in the bin (soft deleted).
+     */
+    val isDeleted: Boolean = false,
+    
+    /**
+     * Timestamp when the item was moved to bin (null if not deleted).
+     */
+    val deletedAt: Long? = null
 ) {
     companion object {
         const val CONTENT_TYPE_TEXT = "text"
         const val CONTENT_TYPE_IMAGE = "image"
         const val MAX_PREVIEW_LENGTH = 200
+        
+        // 30 days in milliseconds
+        const val BIN_RETENTION_DAYS = 30
+        const val BIN_RETENTION_MS = BIN_RETENTION_DAYS * 24 * 60 * 60 * 1000L
     }
 }

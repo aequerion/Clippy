@@ -50,19 +50,56 @@ fun MainScreen(
         viewModel.events.collectLatest { event ->
             when (event) {
                 is MainUiEvent.ShowSnackbar -> {
-                    val result = snackbarHostState.showSnackbar(
+                    snackbarHostState.showSnackbar(
                         message = event.message,
                         actionLabel = event.actionLabel,
                         duration = SnackbarDuration.Short
                     )
-                    if (result == SnackbarResult.ActionPerformed && event.actionLabel == "Undo") {
-                        viewModel.undoDelete()
-                    }
                 }
                 is MainUiEvent.NavigateToSettings -> onNavigateToSettings()
                 else -> {}
             }
         }
+    }
+    
+    // Clear All Confirmation Dialog
+    if (uiState.showClearAllDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.hideClearAllDialog() },
+            title = {
+                Text(
+                    "Clear All Unpinned Items?",
+                    color = ClippyColors.TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    "This will move all unpinned items to the bin. You can restore them within 30 days.",
+                    color = ClippyColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.confirmClearAllUnpinned() },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = ClippyColors.ErrorRed
+                    )
+                ) {
+                    Text("Clear All")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { viewModel.hideClearAllDialog() },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = ClippyColors.TextSecondary
+                    )
+                ) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = ClippyColors.CardBackground
+        )
     }
     
     Scaffold(
@@ -71,7 +108,7 @@ fun MainScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Clippy",
+                        if (uiState.viewMode == ViewMode.CLIPS) "Clippy" else "Bin",
                         fontWeight = FontWeight.Bold,
                         color = ClippyColors.TextPrimary
                     )
@@ -79,30 +116,85 @@ fun MainScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = ClippyColors.BackgroundDark
                 ),
+                navigationIcon = {
+                    if (uiState.viewMode == ViewMode.BIN) {
+                        IconButton(onClick = { viewModel.showClips() }) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = ClippyColors.TextPrimary
+                            )
+                        }
+                    }
+                },
                 actions = {
-                    // Capture clipboard button
-                    IconButton(onClick = {
-                        captureClipboard(context, viewModel)
-                    }) {
-                        Icon(
-                            Icons.Default.ContentPaste,
-                            contentDescription = "Capture Clipboard",
-                            tint = ClippyColors.AccentGreen
-                        )
-                    }
-                    IconButton(onClick = { viewModel.clearAllUnpinned() }) {
-                        Icon(
-                            Icons.Default.DeleteSweep,
-                            contentDescription = "Clear All",
-                            tint = ClippyColors.TextSecondary
-                        )
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = ClippyColors.TextSecondary
-                        )
+                    if (uiState.viewMode == ViewMode.CLIPS) {
+                        // Capture clipboard button
+                        IconButton(onClick = {
+                            captureClipboard(context, viewModel)
+                        }) {
+                            Icon(
+                                Icons.Default.ContentPaste,
+                                contentDescription = "Capture Clipboard",
+                                tint = ClippyColors.AccentGreen
+                            )
+                        }
+                        // Bin button
+                        IconButton(onClick = { viewModel.showBin() }) {
+                            BadgedBox(
+                                badge = {
+                                    if (uiState.binClips.isNotEmpty()) {
+                                        Badge(
+                                            containerColor = ClippyColors.ErrorRed
+                                        ) {
+                                            Text(
+                                                uiState.binClips.size.toString(),
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Bin",
+                                    tint = ClippyColors.TextSecondary
+                                )
+                            }
+                        }
+                        // Clear all button
+                        IconButton(onClick = { viewModel.showClearAllDialog() }) {
+                            Icon(
+                                Icons.Default.DeleteSweep,
+                                contentDescription = "Clear All",
+                                tint = ClippyColors.TextSecondary
+                            )
+                        }
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = ClippyColors.TextSecondary
+                            )
+                        }
+                    } else {
+                        // Bin view actions
+                        if (uiState.binClips.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.restoreAllFromBin() }) {
+                                Icon(
+                                    Icons.Default.RestoreFromTrash,
+                                    contentDescription = "Restore All",
+                                    tint = ClippyColors.AccentGreen
+                                )
+                            }
+                            IconButton(onClick = { viewModel.emptyBin() }) {
+                                Icon(
+                                    Icons.Default.DeleteForever,
+                                    contentDescription = "Empty Bin",
+                                    tint = ClippyColors.ErrorRed
+                                )
+                            }
+                        }
                     }
                 }
             )
@@ -121,18 +213,30 @@ fun MainScreen(
                         color = ClippyColors.AccentGreen
                     )
                 }
-                uiState.clips.isEmpty() -> {
-                    EmptyState(
-                        onCaptureClipboard = { captureClipboard(context, viewModel) }
-                    )
+                uiState.viewMode == ViewMode.CLIPS -> {
+                    if (uiState.clips.isEmpty()) {
+                        EmptyState(
+                            onCaptureClipboard = { captureClipboard(context, viewModel) }
+                        )
+                    } else {
+                        ClipList(
+                            clips = uiState.clips,
+                            onCopyClip = { viewModel.copyToClipboard(it) },
+                            onTogglePin = { viewModel.togglePin(it) },
+                            onDeleteClip = { viewModel.deleteClip(it) }
+                        )
+                    }
                 }
-                else -> {
-                    ClipList(
-                        clips = uiState.clips,
-                        onCopyClip = { viewModel.copyToClipboard(it) },
-                        onTogglePin = { viewModel.togglePin(it) },
-                        onDeleteClip = { viewModel.deleteClip(it) }
-                    )
+                uiState.viewMode == ViewMode.BIN -> {
+                    if (uiState.binClips.isEmpty()) {
+                        EmptyBinState()
+                    } else {
+                        BinList(
+                            clips = uiState.binClips,
+                            onRestore = { viewModel.restoreFromBin(it) },
+                            onPermanentDelete = { viewModel.permanentlyDelete(it) }
+                        )
+                    }
                 }
             }
         }
@@ -214,6 +318,42 @@ private fun EmptyState(
 }
 
 /**
+ * Empty state for bin.
+ */
+@Composable
+private fun EmptyBinState() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Default.DeleteOutline,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = ClippyColors.TextSecondary.copy(alpha = 0.5f)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "Bin is empty",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Medium,
+            color = ClippyColors.TextPrimary
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Deleted items will appear here.\nItems are automatically removed after 30 days.",
+            fontSize = 14.sp,
+            color = ClippyColors.TextSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp),
+            lineHeight = 20.sp
+        )
+    }
+}
+
+/**
  * List of clipboard items.
  */
 @Composable
@@ -237,6 +377,33 @@ private fun ClipList(
                 onCopy = { onCopyClip(clip) },
                 onTogglePin = { onTogglePin(clip) },
                 onDelete = { onDeleteClip(clip) }
+            )
+        }
+    }
+}
+
+/**
+ * List of bin items.
+ */
+@Composable
+private fun BinList(
+    clips: List<ClipEntity>,
+    onRestore: (ClipEntity) -> Unit,
+    onPermanentDelete: (ClipEntity) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(
+            items = clips,
+            key = { it.id }
+        ) { clip ->
+            BinItem(
+                clip = clip,
+                onRestore = { onRestore(clip) },
+                onPermanentDelete = { onPermanentDelete(clip) }
             )
         }
     }
@@ -341,6 +508,116 @@ private fun ClipItem(
             )
         }
     }
+}
+
+/**
+ * Individual bin item card.
+ */
+@Composable
+private fun BinItem(
+    clip: ClipEntity,
+    onRestore: () -> Unit,
+    onPermanentDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = ClippyColors.CardBackground.copy(alpha = 0.7f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            ClippyColors.Border.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            // Header with deletion time and actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = ClippyColors.ErrorRed.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Deleted ${formatTimestamp(clip.deletedAt ?: clip.timestamp)}",
+                        fontSize = 12.sp,
+                        color = ClippyColors.TextSecondary
+                    )
+                }
+                
+                Row {
+                    IconButton(
+                        onClick = onRestore,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.RestoreFromTrash,
+                            contentDescription = "Restore",
+                            modifier = Modifier.size(18.dp),
+                            tint = ClippyColors.AccentGreen
+                        )
+                    }
+                    IconButton(
+                        onClick = onPermanentDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.DeleteForever,
+                            contentDescription = "Delete Permanently",
+                            modifier = Modifier.size(18.dp),
+                            tint = ClippyColors.ErrorRed
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Content
+            Text(
+                clip.content,
+                fontSize = 14.sp,
+                color = ClippyColors.TextPrimary.copy(alpha = 0.7f),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 20.sp
+            )
+            
+            // Days remaining
+            clip.deletedAt?.let { deletedAt ->
+                val daysRemaining = calculateDaysRemaining(deletedAt)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    if (daysRemaining > 0) "$daysRemaining days until permanent deletion"
+                    else "Will be deleted soon",
+                    fontSize = 11.sp,
+                    color = if (daysRemaining <= 7) ClippyColors.ErrorRed.copy(alpha = 0.7f)
+                    else ClippyColors.TextSecondary.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Calculate days remaining before permanent deletion.
+ */
+private fun calculateDaysRemaining(deletedAt: Long): Int {
+    val now = System.currentTimeMillis()
+    val expirationTime = deletedAt + ClipEntity.BIN_RETENTION_MS
+    val remainingMs = expirationTime - now
+    return (remainingMs / (24 * 60 * 60 * 1000)).toInt().coerceAtLeast(0)
 }
 
 /**

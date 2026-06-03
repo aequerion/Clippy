@@ -71,17 +71,17 @@ class ClipRepository @Inject constructor(
     }
     
     /**
-     * Delete a clip by ID.
+     * Soft delete a clip (move to bin) by ID.
      */
     suspend fun deleteClip(id: Long) {
-        clipDao.deleteClipById(id)
+        clipDao.softDeleteById(id)
     }
     
     /**
-     * Delete a clip entity.
+     * Soft delete a clip entity (move to bin).
      */
     suspend fun deleteClip(clip: ClipEntity) {
-        clipDao.deleteClip(clip)
+        clipDao.softDeleteById(clip.id)
     }
     
     /**
@@ -112,21 +112,21 @@ class ClipRepository @Inject constructor(
     }
     
     /**
-     * Clear all unpinned clips.
+     * Soft delete all unpinned clips (move to bin).
      */
     suspend fun clearUnpinned() {
-        clipDao.deleteAllUnpinned()
+        clipDao.softDeleteAllUnpinned()
     }
     
     /**
-     * Clear all clips including pinned.
+     * Clear all clips including pinned (permanent delete).
      */
     suspend fun clearAll() {
         clipDao.deleteAll()
     }
     
     /**
-     * Get the total count of clips.
+     * Get the total count of active clips.
      */
     suspend fun getClipCount(): Int = clipDao.getClipCount()
     
@@ -145,5 +145,59 @@ class ClipRepository @Inject constructor(
      */
     suspend fun restoreClip(clip: ClipEntity): Long {
         return clipDao.insertClip(clip)
+    }
+    
+    // ==================== BIN RELATED METHODS ====================
+    
+    /**
+     * Get all clips in the bin as a Flow.
+     */
+    fun getBinClips(): Flow<List<ClipEntity>> = clipDao.getBinClips()
+    
+    /**
+     * Get all clips in the bin as a one-time list.
+     */
+    suspend fun getBinClipsOnce(): List<ClipEntity> = clipDao.getBinClipsOnce()
+    
+    /**
+     * Get the count of clips in bin.
+     */
+    suspend fun getBinCount(): Int = clipDao.getBinCount()
+    
+    /**
+     * Restore a clip from bin.
+     */
+    suspend fun restoreFromBin(id: Long) {
+        clipDao.restoreFromBin(id)
+    }
+    
+    /**
+     * Restore all clips from bin.
+     */
+    suspend fun restoreAllFromBin() {
+        clipDao.restoreAllFromBin()
+    }
+    
+    /**
+     * Permanently delete all clips in bin.
+     */
+    suspend fun emptyBin() {
+        clipDao.emptyBin()
+    }
+    
+    /**
+     * Permanently delete a single clip from bin.
+     */
+    suspend fun permanentlyDelete(id: Long) {
+        clipDao.deleteClipById(id)
+    }
+    
+    /**
+     * Clean up old bin items (30-day auto-clear).
+     * Deletes items that have been in bin for more than 30 days.
+     */
+    suspend fun cleanupOldBinItems() {
+        val cutoffTime = System.currentTimeMillis() - ClipEntity.BIN_RETENTION_MS
+        clipDao.deleteOldBinItems(cutoffTime)
     }
 }

@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -24,14 +23,25 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
+ * Enum for current view mode.
+ */
+enum class ViewMode {
+    CLIPS,
+    BIN
+}
+
+/**
  * UI State for the main screen.
  */
 data class MainUiState(
     val clips: List<ClipEntity> = emptyList(),
+    val binClips: List<ClipEntity> = emptyList(),
     val isLoading: Boolean = true,
     val serviceEnabled: Boolean = true,
     val showNotification: Boolean = true,
-    val maxHistorySize: Int = 100
+    val maxHistorySize: Int = 100,
+    val viewMode: ViewMode = ViewMode.CLIPS,
+    val showClearAllDialog: Boolean = false
 )
 
 /**
@@ -55,23 +65,40 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
     
     private val _isLoading = MutableStateFlow(true)
+    private val _viewMode = MutableStateFlow(ViewMode.CLIPS)
+    private val _showClearAllDialog = MutableStateFlow(false)
     
     /**
      * Combined UI state from multiple sources.
      */
     val uiState: StateFlow<MainUiState> = combine(
         clipRepository.getAllClips(),
+        clipRepository.getBinClips(),
         preferencesManager.serviceEnabled,
         preferencesManager.showNotification,
         preferencesManager.maxHistorySize,
-        _isLoading
-    ) { clips, serviceEnabled, showNotification, maxHistorySize, isLoading ->
+        _isLoading,
+        _viewMode,
+        _showClearAllDialog
+    ) { values ->
+        val clips = values[0] as List<ClipEntity>
+        val binClips = values[1] as List<ClipEntity>
+        val serviceEnabled = values[2] as Boolean
+        val showNotification = values[3] as Boolean
+        val maxHistorySize = values[4] as Int
+        val isLoading = values[5] as Boolean
+        val viewMode = values[6] as ViewMode
+        val showClearAllDialog = values[7] as Boolean
+        
         MainUiState(
             clips = clips,
+            binClips = binClips,
             isLoading = isLoading && clips.isEmpty(),
             serviceEnabled = serviceEnabled,
             showNotification = showNotification,
-            maxHistorySize = maxHistorySize
+            maxHistorySize = maxHistorySize,
+            viewMode = viewMode,
+            showClearAllDialog = showClearAllDialog
         )
     }.stateIn(
         scope = viewModelScope,
@@ -82,15 +109,17 @@ class MainViewModel @Inject constructor(
     private val _events = MutableSharedFlow<MainUiEvent>()
     val events = _events.asSharedFlow()
     
-    // For undo functionality
-    private var lastDeletedClip: ClipEntity? = null
-    
     init {
         viewModelScope.launch {
             // Mark loading as complete after initial data load
             clipRepository.getAllClips().collect {
                 _isLoading.value = false
             }
+        }
+        
+        // Clean up old bin items on startup
+        viewModelScope.launch {
+            clipRepository.cleanupOldBinItems()
         }
     }
     
@@ -124,37 +153,38 @@ class MainViewModel @Inject constructor(
     }
     
     /**
-     * Delete a clip with undo support.
+     * Delete a clip (move to bin).
      */
     fun deleteClip(clip: ClipEntity) {
         viewModelScope.launch {
-            lastDeletedClip = clip
             clipRepository.deleteClip(clip)
             _events.emit(MainUiEvent.ClipDeleted(clip))
-            _events.emit(MainUiEvent.ShowSnackbar("Deleted", "Undo"))
+            _events.emit(MainUiEvent.ShowSnackbar("Moved to bin"))
         }
     }
     
     /**
-     * Restore the last deleted clip.
+     * Show confirmation dialog for clearing all unpinned items.
      */
-    fun undoDelete() {
-        viewModelScope.launch {
-            lastDeletedClip?.let { clip ->
-                clipRepository.restoreClip(clip)
-                lastDeletedClip = null
-                _events.emit(MainUiEvent.ShowSnackbar("Restored"))
-            }
-        }
+    fun showClearAllDialog() {
+        _showClearAllDialog.value = true
     }
     
     /**
-     * Clear all unpinned clips.
+     * Hide confirmation dialog.
      */
-    fun clearAllUnpinned() {
+    fun hideClearAllDialog() {
+        _showClearAllDialog.value = false
+    }
+    
+    /**
+     * Clear all unpinned clips (with confirmation).
+     */
+    fun confirmClearAllUnpinned() {
         viewModelScope.launch {
             clipRepository.clearUnpinned()
-            _events.emit(MainUiEvent.ShowSnackbar("Cleared all unpinned items"))
+            _showClearAllDialog.value = false
+            _events.emit(MainUiEvent.ShowSnackbar("Moved all unpinned items to bin"))
         }
     }
     
@@ -207,6 +237,9 @@ class MainViewModel @Inject constructor(
             // Just trigger a brief loading state
             kotlinx.coroutines.delay(100)
             _isLoading.value = false
+            
+            // Also clean up old bin items
+            clipRepository.cleanupOldBinItems()
         }
     }
     
@@ -222,6 +255,62 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 _events.emit(MainUiEvent.ShowSnackbar("Failed to capture clipboard"))
             }
+        }
+    }
+    
+    // ==================== BIN RELATED METHODS ====================
+    
+    /**
+     * Switch to bin view.
+     */
+    fun showBin() {
+        _viewMode.value = ViewMode.BIN
+    }
+    
+    /**
+     * Switch to clips view.
+     */
+    fun showClips() {
+        _viewMode.value = ViewMode.CLIPS
+    }
+    
+    /**
+     * Restore a clip from bin.
+     */
+    fun restoreFromBin(clip: ClipEntity) {
+        viewModelScope.launch {
+            clipRepository.restoreFromBin(clip.id)
+            _events.emit(MainUiEvent.ShowSnackbar("Restored"))
+        }
+    }
+    
+    /**
+     * Permanently delete a clip from bin.
+     */
+    fun permanentlyDelete(clip: ClipEntity) {
+        viewModelScope.launch {
+            clipRepository.permanentlyDelete(clip.id)
+            _events.emit(MainUiEvent.ShowSnackbar("Permanently deleted"))
+        }
+    }
+    
+    /**
+     * Empty the entire bin.
+     */
+    fun emptyBin() {
+        viewModelScope.launch {
+            clipRepository.emptyBin()
+            _events.emit(MainUiEvent.ShowSnackbar("Bin emptied"))
+        }
+    }
+    
+    /**
+     * Restore all clips from bin.
+     */
+    fun restoreAllFromBin() {
+        viewModelScope.launch {
+            clipRepository.restoreAllFromBin()
+            _events.emit(MainUiEvent.ShowSnackbar("All items restored"))
         }
     }
 }

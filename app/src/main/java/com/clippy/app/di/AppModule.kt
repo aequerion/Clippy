@@ -31,6 +31,7 @@ object AppModule {
             ClipDatabase::class.java,
             ClipDatabase.DATABASE_NAME
         )
+            .addMigrations(ClipDatabase.MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
     }
