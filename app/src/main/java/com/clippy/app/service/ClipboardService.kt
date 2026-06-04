@@ -101,8 +101,9 @@ class ClipboardService : Service() {
         serviceScope.launch {
             try {
                 val recentClips = clipRepository.getRecentClips(5)
-                Log.d(TAG, "Building notification with ${recentClips.size} recent clips")
-                val notification = notificationHelper.buildServiceNotification(recentClips)
+                val totalCount = clipRepository.getClipCount()
+                Log.d(TAG, "Building notification with ${recentClips.size} recent clips, total: $totalCount")
+                val notification = notificationHelper.buildServiceNotification(recentClips, totalCount)
                 startForeground(NotificationHelper.NOTIFICATION_ID, notification)
                 Log.d(TAG, "Foreground service started successfully")
             } catch (e: Exception) {
@@ -158,8 +159,9 @@ class ClipboardService : Service() {
                 val showNotification = preferencesManager.showNotification.first()
                 if (showNotification) {
                     val recentClips = clipRepository.getRecentClips(5)
-                    notificationHelper.updateNotification(recentClips)
-                    Log.d(TAG, "Notification updated")
+                    val totalCount = clipRepository.getClipCount()
+                    notificationHelper.updateNotification(recentClips, totalCount)
+                    Log.d(TAG, "Notification updated with total count: $totalCount")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving clip", e)
@@ -197,7 +199,8 @@ class ClipboardService : Service() {
             val showNotification = preferencesManager.showNotification.first()
             if (showNotification) {
                 val recentClips = clipRepository.getRecentClips(5)
-                notificationHelper.updateNotification(recentClips)
+                val totalCount = clipRepository.getClipCount()
+                notificationHelper.updateNotification(recentClips, totalCount)
             }
         }
     }
