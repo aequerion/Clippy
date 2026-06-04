@@ -56,8 +56,10 @@ class NotificationHelper @Inject constructor(
     
     /**
      * Build the foreground service notification.
+     * @param recentClips List of recent clips to show in expanded notification (max 5)
+     * @param totalCount Total number of clips in history (for display)
      */
-    fun buildServiceNotification(recentClips: List<ClipEntity> = emptyList()): android.app.Notification {
+    fun buildServiceNotification(recentClips: List<ClipEntity> = emptyList(), totalCount: Int = recentClips.size): android.app.Notification {
         // Intent to open the app
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -92,7 +94,7 @@ class NotificationHelper @Inject constructor(
                 inboxStyle.addLine(preview)
             }
             
-            builder.setContentText("${recentClips.size} items in history")
+            builder.setContentText("$totalCount items in history")
             builder.setStyle(inboxStyle)
             
             // Add quick copy action for the most recent clip
@@ -121,9 +123,11 @@ class NotificationHelper @Inject constructor(
     
     /**
      * Update the notification with new clips.
+     * @param recentClips List of recent clips to show in expanded notification (max 5)
+     * @param totalCount Total number of clips in history (for display)
      */
-    fun updateNotification(recentClips: List<ClipEntity>) {
-        val notification = buildServiceNotification(recentClips)
+    fun updateNotification(recentClips: List<ClipEntity>, totalCount: Int = recentClips.size) {
+        val notification = buildServiceNotification(recentClips, totalCount)
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
     
