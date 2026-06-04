@@ -5,8 +5,6 @@
         <include domain="database" path="clippy_database" />
         <!-- Include shared preferences -->
         <include domain="sharedpref" path="." />
-        <!-- Exclude datastore -->
-        <exclude domain="file" path="datastore" />
     </cloud-backup>
     <device-transfer>
         <!-- Include everything for device transfer -->

@@ -4,7 +4,7 @@ A modern, privacy-focused clipboard manager for Android inspired by [Maccy](http
 
 ## Features
 
-### Current Version (v1.0.0)
+### Current Version (v1.1.0)
 
 - ✅ **Automatic Clipboard Capture** - Monitors clipboard changes in the background
 - ✅ **Text History** - Stores text clipboard items with timestamps
@@ -13,7 +13,8 @@ A modern, privacy-focused clipboard manager for Android inspired by [Maccy](http
 - ✅ **Persistent Notification** - Quick access to recent clips from notification
 - ✅ **Configurable History Size** - Set maximum items to keep (10-500)
 - ✅ **Dark Theme** - Beautiful GitHub-inspired dark theme
-- ✅ **Undo Delete** - Restore accidentally deleted items
+- ✅ **Bin/Trash** - Deleted items move to bin with 30-day auto-clear
+- ✅ **Undo Delete** - Instantly restore accidentally deleted items
 - ✅ **Boot Persistence** - Service restarts after device reboot
 
 ### Planned Features

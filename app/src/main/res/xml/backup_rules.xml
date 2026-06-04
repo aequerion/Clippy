@@ -4,6 +4,4 @@
     <include domain="database" path="clippy_database" />
     <!-- Include shared preferences -->
     <include domain="sharedpref" path="." />
-    <!-- Exclude datastore (will be recreated) -->
-    <exclude domain="file" path="datastore" />
 </full-backup-content>
